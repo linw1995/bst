@@ -1,5 +1,3 @@
-mod arena;
-
 use std::cmp::Ordering;
 
 #[derive(Debug)]
