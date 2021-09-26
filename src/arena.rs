@@ -10,18 +10,12 @@ pub struct Node<T> {
 }
 
 #[derive(Debug, Default)]
-pub struct ArenaTree<T>
-where
-	T: PartialEq,
-{
+pub struct ArenaTree<T> {
 	root_id: usize,
 	arena: Vec<Node<T>>,
 }
 
-impl<T> Node<T>
-where
-	T: PartialEq,
-{
+impl<T> Node<T> {
 	fn new(idx: usize, val: T) -> Self {
 		Self {
 			idx,
@@ -45,13 +39,6 @@ impl<T> ArenaTree<T>
 where
 	T: Ord + Copy,
 {
-	pub fn new() -> ArenaTree<T> {
-		ArenaTree {
-			arena: vec![],
-			root_id: 0,
-		}
-	}
-
 	fn node(&mut self, val: T) -> usize {
 		//first see if it exists
 		for node in &self.arena {
@@ -107,16 +94,17 @@ where
 
 #[test]
 fn bst_insert_root() {
-	let mut t = ArenaTree::new();
+	let mut t = ArenaTree::default();
 	let root_id = t.insert(0usize);
 	assert_eq!(t.size(), 1);
 	assert_eq!(root_id, 0);
+
 	println!("arena: {:?}", t);
 }
 
 #[test]
 fn bst_insert_less() {
-	let mut t = ArenaTree::new();
+	let mut t = ArenaTree::default();
 	let root_id = t.insert(10usize);
 	let left_id = t.insert(0usize);
 	assert_eq!(t.size(), 2);
@@ -124,12 +112,13 @@ fn bst_insert_less() {
 
 	let root = t.root();
 	assert_eq!(root.unwrap().left.unwrap(), left_id);
+
 	println!("arena: {:?}", t);
 }
 
 #[test]
 fn bst_insert_greater() {
-	let mut t = ArenaTree::new();
+	let mut t = ArenaTree::default();
 	let root_id = t.insert(0usize);
 	let left_id = t.insert(10usize);
 	assert_eq!(t.size(), 2);
@@ -137,7 +126,6 @@ fn bst_insert_greater() {
 
 	let root = t.root();
 	assert_eq!(root.unwrap().right.unwrap(), left_id);
-	println!("arena: {:?}", t);
 
 	println!("arena: {:?}", t);
 }
