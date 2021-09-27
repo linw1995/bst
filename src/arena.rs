@@ -40,13 +40,6 @@ where
 	T: Ord + Copy,
 {
 	fn node(&mut self, val: T) -> usize {
-		//first see if it exists
-		for node in &self.arena {
-			if node.val == val {
-				return node.idx;
-			}
-		}
-		// Otherwise, add new node
 		let idx = self.arena.len();
 		self.arena.push(Node::new(idx, val));
 		idx
@@ -56,39 +49,39 @@ where
 		self.arena.len()
 	}
 
-	pub fn root(&self) -> Option<&Node<T>> {
-		if self.root_id <= self.size() {
-			Some(&self.arena[self.root_id])
-		} else {
-			None
-		}
-	}
-
 	pub fn insert(&mut self, val: T) -> usize {
-		let id = self.node(val);
-		if self.size() > 1 {
-			let mut cur = self.root().unwrap();
+		if self.size() == 0 {
+			self.node(val)
+		} else {
+			let mut cur = &self.arena[0];
 			let (parent_id, dir) = loop {
 				cur = match val.cmp(&cur.val) {
 					Ordering::Less => match cur.left {
 						None => break (cur.idx, true),
 						Some(i) => &self.arena[i],
 					},
-					Ordering::Equal => panic!("shit happen!"),
+					Ordering::Equal => return cur.idx,
 					Ordering::Greater => match cur.right {
 						None => break (cur.idx, false),
 						Some(i) => &self.arena[i],
 					},
 				}
 			};
-			self.arena[id].parent.replace(parent_id);
-			if dir {
-				self.arena[parent_id].left.replace(id);
-			} else {
-				self.arena[parent_id].right.replace(id);
+			let id = self.node(val);
+			{
+				let node = &mut self.arena[id];
+				node.parent.replace(parent_id);
 			}
+			{
+				let parent = &mut self.arena[parent_id];
+				if dir {
+					parent.left.replace(id);
+				} else {
+					parent.right.replace(id);
+				}
+			}
+			id
 		}
-		id
 	}
 }
 
@@ -110,8 +103,7 @@ fn bst_insert_less() {
 	assert_eq!(t.size(), 2);
 	assert_eq!(t.arena[left_id].parent.unwrap(), root_id);
 
-	let root = t.root();
-	assert_eq!(root.unwrap().left.unwrap(), left_id);
+	assert_eq!(t.arena[0].left.unwrap(), left_id);
 
 	println!("arena: {:?}", t);
 }
@@ -124,8 +116,7 @@ fn bst_insert_greater() {
 	assert_eq!(t.size(), 2);
 	assert_eq!(t.arena[left_id].parent.unwrap(), root_id);
 
-	let root = t.root();
-	assert_eq!(root.unwrap().right.unwrap(), left_id);
+	assert_eq!(t.arena[0].right.unwrap(), left_id);
 
 	println!("arena: {:?}", t);
 }
