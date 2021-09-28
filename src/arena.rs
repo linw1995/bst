@@ -132,6 +132,27 @@ where
 		todo!()
 	}
 
+	pub fn traversal(&self) -> Vec<T> {
+		self.traversal_map(|x| x)
+	}
+
+	pub fn traversal_map(&self, f: fn(T) -> T) -> Vec<T> {
+		let mut path = Vec::with_capacity(self.size());
+		self.recursive_traversal_map(f, 0, &mut path);
+		path
+	}
+
+	/// In-order Traversal (LNR)
+	fn recursive_traversal_map(&self, f: fn(T) -> T, id: usize, path: &mut Vec<T>) {
+		let node = &self.arena[id];
+		if node.left.is_some() {
+			self.recursive_traversal_map(f, node.left.unwrap(), path);
+		}
+		path.push(f(node.val));
+		if node.right.is_some() {
+			self.recursive_traversal_map(f, node.right.unwrap(), path);
+		}
+	}
 }
 
 #[test]
@@ -182,4 +203,14 @@ fn bst_insert_greater() {
 	assert_eq!(t.arena[0].right.unwrap(), left_id);
 
 	println!("arena: {:?}", t);
+}
+
+#[test]
+fn bst_traversal() {
+	let mut t = ArenaTree::default();
+	t.insert(2);
+	t.insert(1);
+	t.insert(3);
+	let v = t.traversal();
+	assert_eq!(v, vec![1, 2, 3]);
 }
