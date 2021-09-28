@@ -101,7 +101,13 @@ where
 
 	pub fn insert(&mut self, val: T) -> usize {
 		match self.search_parent(val) {
-			None => self.node(val),
+			None => {
+				if self.arena.len() > 0 && self.arena[0].val == val {
+					0
+				} else {
+					self.node(val)
+				}
+			}
 			Some((parent_id, dir)) => {
 				let id = self.node(val);
 				{
@@ -134,6 +140,20 @@ fn bst_insert_root() {
 	let root_id = t.insert(0usize);
 	assert_eq!(t.size(), 1);
 	assert_eq!(root_id, 0);
+
+	println!("arena: {:?}", t);
+}
+
+#[test]
+fn bst_insert_same_twice() {
+	let mut t = ArenaTree::default();
+	let root_id = t.insert(0usize);
+	assert_eq!(t.size(), 1);
+	assert_eq!(root_id, 0);
+
+	let new_id = t.insert(0usize);
+	assert_eq!(t.size(), 1);
+	assert_eq!(new_id, 0);
 
 	println!("arena: {:?}", t);
 }
