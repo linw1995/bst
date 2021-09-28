@@ -49,40 +49,83 @@ where
 		self.arena.len()
 	}
 
-	pub fn insert(&mut self, val: T) -> usize {
+	pub fn search_parent(&mut self, val: T) -> Option<(usize, bool)> {
 		if self.size() == 0 {
-			self.node(val)
+			None
 		} else {
 			let mut cur = &self.arena[0];
-			let (parent_id, dir) = loop {
+			loop {
 				cur = match val.cmp(&cur.val) {
 					Ordering::Less => match cur.left {
-						None => break (cur.idx, true),
+						None => break Some((cur.idx, true)),
 						Some(i) => &self.arena[i],
 					},
-					Ordering::Equal => return cur.idx,
+					Ordering::Equal => {
+						break match cur.parent {
+							None => None,
+							Some(parent_id) => Some((
+								parent_id,
+								self.arena[parent_id].left
+									== Some(cur.idx),
+							)),
+						}
+					}
 					Ordering::Greater => match cur.right {
-						None => break (cur.idx, false),
+						None => break Some((cur.idx, false)),
 						Some(i) => &self.arena[i],
 					},
 				}
-			};
-			let id = self.node(val);
-			{
-				let node = &mut self.arena[id];
-				node.parent.replace(parent_id);
 			}
-			{
-				let parent = &mut self.arena[parent_id];
-				if dir {
-					parent.left.replace(id);
-				} else {
-					parent.right.replace(id);
-				}
-			}
-			id
 		}
 	}
+
+	pub fn search(&mut self, val: T) -> Option<usize> {
+		match self.search_parent(val) {
+			None => {
+				if self.arena.len() > 0 && self.arena[0].val == val {
+					Some(0)
+				} else {
+					None
+				}
+			}
+			Some((parent_id, dir)) => {
+				let parent = &self.arena[parent_id];
+				if dir {
+					parent.left
+				} else {
+					parent.right
+				}
+			}
+		}
+	}
+
+	pub fn insert(&mut self, val: T) -> usize {
+		match self.search_parent(val) {
+			None => self.node(val),
+			Some((parent_id, dir)) => {
+				let id = self.node(val);
+				{
+					let node = &mut self.arena[id];
+					node.parent.replace(parent_id);
+				}
+				{
+					let parent = &mut self.arena[parent_id];
+					if dir {
+						parent.left.replace(id);
+					} else {
+						parent.right.replace(id);
+					}
+				}
+				id
+			}
+		}
+	}
+
+	/// delete may produce a gap in arena.
+	pub fn delete(&mut self, val: T) {
+		todo!()
+	}
+
 }
 
 #[test]
