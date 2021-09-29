@@ -109,6 +109,18 @@ where
 				}
 			}
 			Some((parent_id, dir)) => {
+				{
+					let parent = &self.arena[parent_id];
+					if dir {
+						if parent.left.is_some() {
+							return parent.left.unwrap();
+						}
+					} else {
+						if parent.right.is_some() {
+							return parent.right.unwrap();
+						}
+					}
+				}
 				let id = self.node(val);
 				{
 					let node = &mut self.arena[id];
@@ -166,7 +178,7 @@ fn bst_insert_root() {
 }
 
 #[test]
-fn bst_insert_same_twice() {
+fn bst_insert_same_root_twice() {
 	let mut t = ArenaTree::default();
 	let root_id = t.insert(0usize);
 	assert_eq!(t.size(), 1);
@@ -175,6 +187,21 @@ fn bst_insert_same_twice() {
 	let new_id = t.insert(0usize);
 	assert_eq!(t.size(), 1);
 	assert_eq!(new_id, 0);
+
+	println!("arena: {:?}", t);
+}
+
+#[test]
+fn bst_insert_same_twice() {
+	let mut t = ArenaTree::default();
+	let root_id = t.insert(10usize);
+	let left_id = t.insert(0usize);
+	assert_eq!(t.size(), 2);
+	assert_eq!(t.arena[left_id].parent.unwrap(), root_id);
+
+	let new_id = t.insert(0usize);
+	assert_eq!(new_id, left_id);
+	assert_eq!(t.size(), 2);
 
 	println!("arena: {:?}", t);
 }
