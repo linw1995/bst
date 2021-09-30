@@ -164,7 +164,6 @@ where
 		path
 	}
 
-	/// In-order Traversal (LNR)
 	fn recursive_traversal_map(
 		&self,
 		typ: &Traversal,
