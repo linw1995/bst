@@ -35,6 +35,16 @@ impl<T> Node<T> {
 	}
 }
 
+#[derive(Debug)]
+pub enum Traversal {
+	NLR,
+	LNR,
+	LRN,
+	NRL,
+	RNL,
+	RLN,
+}
+
 impl<T> ArenaTree<T>
 where
 	T: Ord + Copy,
@@ -144,25 +154,80 @@ where
 		todo!()
 	}
 
-	pub fn traversal(&self) -> Vec<T> {
-		self.traversal_map(|x| x)
+	pub fn traversal(&self, typ: &Traversal) -> Vec<T> {
+		self.traversal_map(typ, |x| x)
 	}
 
-	pub fn traversal_map(&self, f: fn(T) -> T) -> Vec<T> {
+	pub fn traversal_map(&self, typ: &Traversal, f: fn(T) -> T) -> Vec<T> {
 		let mut path = Vec::with_capacity(self.size());
-		self.recursive_traversal_map(f, 0, &mut path);
+		self.recursive_traversal_map(typ, f, Some(0), &mut path);
 		path
 	}
 
 	/// In-order Traversal (LNR)
-	fn recursive_traversal_map(&self, f: fn(T) -> T, id: usize, path: &mut Vec<T>) {
-		let node = &self.arena[id];
-		if node.left.is_some() {
-			self.recursive_traversal_map(f, node.left.unwrap(), path);
-		}
-		path.push(f(node.val));
-		if node.right.is_some() {
-			self.recursive_traversal_map(f, node.right.unwrap(), path);
+	fn recursive_traversal_map(
+		&self,
+		typ: &Traversal,
+		f: fn(T) -> T,
+		id: Option<usize>,
+		path: &mut Vec<T>,
+	) {
+		match id {
+			None => return,
+			Some(id) => {
+				let node = &self.arena[id];
+				macro_rules! R {
+					() => {
+						self.recursive_traversal_map(
+							typ, f, node.right, path,
+						);
+					};
+				}
+				macro_rules! L {
+					() => {
+						self.recursive_traversal_map(
+							typ, f, node.left, path,
+						);
+					};
+				}
+				macro_rules! N {
+					() => {
+						path.push(f(node.val));
+					};
+				}
+				match typ {
+					Traversal::NLR => {
+						N!();
+						L!();
+						R!();
+					}
+					Traversal::LNR => {
+						L!();
+						N!();
+						R!();
+					}
+					Traversal::LRN => {
+						L!();
+						R!();
+						N!();
+					}
+					Traversal::NRL => {
+						N!();
+						R!();
+						L!();
+					}
+					Traversal::RNL => {
+						R!();
+						N!();
+						L!();
+					}
+					Traversal::RLN => {
+						R!();
+						L!();
+						N!();
+					}
+				}
+			}
 		}
 	}
 }
@@ -238,6 +303,46 @@ fn bst_traversal() {
 	t.insert(2);
 	t.insert(1);
 	t.insert(3);
-	let v = t.traversal();
-	assert_eq!(v, vec![1, 2, 3]);
+
+	println!("arena: {:?}", t);
+
+	let testcases = vec![
+		(&Traversal::NLR, vec![2, 1, 3]),
+		(&Traversal::LNR, vec![1, 2, 3]),
+		(&Traversal::LRN, vec![1, 3, 2]),
+		(&Traversal::NRL, vec![2, 3, 1]),
+		(&Traversal::RNL, vec![3, 2, 1]),
+		(&Traversal::RLN, vec![3, 1, 2]),
+	];
+
+	for (mode, expect) in testcases.iter() {
+		println!("mode: {:?}, expect: {:?}", mode, expect);
+		assert_eq!(&t.traversal(mode), expect);
+	}
+}
+
+#[test]
+fn bst_traversal_complex() {
+	let mut t = ArenaTree::default();
+	t.insert(5);
+	t.insert(1);
+	t.insert(2);
+	t.insert(4);
+	t.insert(3);
+
+	println!("arena: {:?}", t);
+
+	let testcases = vec![
+		(&Traversal::NLR, vec![5, 1, 2, 4, 3]),
+		(&Traversal::LNR, vec![1, 2, 3, 4, 5]),
+		(&Traversal::LRN, vec![3, 4, 2, 1, 5]),
+		(&Traversal::NRL, vec![5, 1, 2, 4, 3]),
+		(&Traversal::RNL, vec![5, 4, 3, 2, 1]),
+		(&Traversal::RLN, vec![3, 4, 2, 1, 5]),
+	];
+
+	for (mode, expect) in testcases.iter() {
+		println!("mode: {:?}, expect: {:?}", mode, expect);
+		assert_eq!(&t.traversal(mode), expect);
+	}
 }
