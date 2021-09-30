@@ -37,12 +37,15 @@ impl<T> Node<T> {
 
 #[derive(Debug)]
 pub enum Traversal {
+	// DFS
 	NLR,
 	LNR,
 	LRN,
 	NRL,
 	RNL,
 	RLN,
+	// DFS end
+	BFS,
 }
 
 impl<T> ArenaTree<T>
@@ -160,11 +163,33 @@ where
 
 	pub fn traversal_map(&self, typ: &Traversal, f: fn(T) -> T) -> Vec<T> {
 		let mut path = Vec::with_capacity(self.size());
-		self.recursive_traversal_map(typ, f, Some(0), &mut path);
+		match typ {
+			Traversal::BFS => self.traversal_map_in_bfs(f, &mut path),
+			_ => self.recursive_traversal_map_in_dfs(typ, f, Some(0), &mut path),
+		}
 		path
 	}
 
-	fn recursive_traversal_map(
+	fn traversal_map_in_bfs(&self, f: fn(T) -> T, path: &mut Vec<T>) {
+		use std::collections::VecDeque;
+		let mut q = VecDeque::with_capacity(self.size());
+		let mut cur = &self.arena[0];
+		loop {
+			path.push(f(cur.val));
+			if cur.left.is_some() {
+				q.push_back(cur.left.unwrap());
+			}
+			if cur.right.is_some() {
+				q.push_back(cur.right.unwrap());
+			}
+			match q.pop_front() {
+				Some(id) => cur = &self.arena[id],
+				None => break,
+			}
+		}
+	}
+
+	fn recursive_traversal_map_in_dfs(
 		&self,
 		typ: &Traversal,
 		f: fn(T) -> T,
@@ -177,14 +202,14 @@ where
 				let node = &self.arena[id];
 				macro_rules! R {
 					() => {
-						self.recursive_traversal_map(
+						self.recursive_traversal_map_in_dfs(
 							typ, f, node.right, path,
 						);
 					};
 				}
 				macro_rules! L {
 					() => {
-						self.recursive_traversal_map(
+						self.recursive_traversal_map_in_dfs(
 							typ, f, node.left, path,
 						);
 					};
@@ -225,6 +250,7 @@ where
 						L!();
 						N!();
 					}
+					Traversal::BFS => unreachable!(),
 				}
 			}
 		}
@@ -312,6 +338,7 @@ fn bst_traversal() {
 		(&Traversal::NRL, vec![2, 3, 1]),
 		(&Traversal::RNL, vec![3, 2, 1]),
 		(&Traversal::RLN, vec![3, 1, 2]),
+		(&Traversal::BFS, vec![2, 1, 3]),
 	];
 
 	for (mode, expect) in testcases.iter() {
@@ -338,6 +365,7 @@ fn bst_traversal_complex() {
 		(&Traversal::NRL, vec![5, 1, 2, 4, 3]),
 		(&Traversal::RNL, vec![5, 4, 3, 2, 1]),
 		(&Traversal::RLN, vec![3, 4, 2, 1, 5]),
+		(&Traversal::BFS, vec![5, 1, 2, 4, 3]),
 	];
 
 	for (mode, expect) in testcases.iter() {
