@@ -219,37 +219,18 @@ where
 						path.push(f(node.val));
 					};
 				}
+				macro_rules! invoke_marcos {
+					($($name: ident),*) => {{
+						$($name!();)*
+					}};
+				}
 				match typ {
-					Traversal::NLR => {
-						N!();
-						L!();
-						R!();
-					}
-					Traversal::LNR => {
-						L!();
-						N!();
-						R!();
-					}
-					Traversal::LRN => {
-						L!();
-						R!();
-						N!();
-					}
-					Traversal::NRL => {
-						N!();
-						R!();
-						L!();
-					}
-					Traversal::RNL => {
-						R!();
-						N!();
-						L!();
-					}
-					Traversal::RLN => {
-						R!();
-						L!();
-						N!();
-					}
+					Traversal::NLR => invoke_marcos!(N, L, R),
+					Traversal::LNR => invoke_marcos!(L, N, R),
+					Traversal::LRN => invoke_marcos!(L, R, N),
+					Traversal::NRL => invoke_marcos!(N, R, L),
+					Traversal::RNL => invoke_marcos!(R, N, L),
+					Traversal::RLN => invoke_marcos!(R, L, N),
 					Traversal::BFS => unreachable!(),
 				}
 			}
