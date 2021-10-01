@@ -96,7 +96,7 @@ where
 		match self.search_parent(val) {
 			None => {
 				if self.arena.len() > 0 && self.arena[self.root_id].val == val {
-					Some(0)
+					Some(self.root_id)
 				} else {
 					None
 				}
