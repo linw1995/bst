@@ -58,6 +58,17 @@ where
 		idx
 	}
 
+	pub fn from_vec(v: Vec<T>) -> Self {
+		let mut t = Self {
+			arena: vec![],
+			root_id: 0,
+		};
+		for &val in v.iter() {
+			t.insert(val);
+		}
+		t
+	}
+
 	pub fn size(&self) -> usize {
 		self.arena.len()
 	}
@@ -167,13 +178,13 @@ where
 		match self.search(val) {
 			None => false,
 			Some(id) => {
-				let (is_leaf, parent_id, right_id, left_id) = {
+				let (parent_id, right_id, left_id) = {
 					let cur = &self.arena[id];
-					(cur.is_leaf(), cur.parent, cur.right, cur.left)
+					(cur.parent, cur.right, cur.left)
 				};
 				macro_rules! update_parent {
-					($id: expr) => {
-						match (parent_id, $id) {
+					($parent_id: expr, $id: expr, $original_id: expr) => {
+						match ($parent_id, $id) {
 							(None, None) => self.arena.clear(),
 							(None, Some(id)) => {
 								self.root_id = id;
@@ -181,7 +192,8 @@ where
 							(Some(parent_id), val) => {
 								let parent =
 									&mut self.arena[parent_id];
-								if parent.left == Some(id) {
+								if parent.left == Some($original_id)
+								{
 									parent.left = val;
 								} else {
 									parent.right = val;
@@ -190,31 +202,42 @@ where
 						}
 					};
 				}
-				if is_leaf {
-					update_parent!(None);
-				} else if right_id.is_some() && left_id.is_some() {
-					let candidate_id = self.most_left(right_id.unwrap());
-					update_parent!(Some(candidate_id));
-					let candidate_parent_id = {
-						let candidate = &mut self.arena[candidate_id];
-						candidate.right = right_id;
-						candidate.left = left_id;
-						let candidate_parent_id = candidate.parent.unwrap();
-						candidate.parent = parent_id;
-						candidate_parent_id
-					};
-					let candidate_parent = &mut self.arena[candidate_parent_id];
-					if candidate_parent.left == Some(candidate_id) {
-						candidate_parent.left = None
-					} else {
-						candidate_parent.right = None
+				match (left_id, right_id) {
+					(None, None) => update_parent!(parent_id, None, id),
+					(Some(left_id), Some(right_id)) => {
+						let candidate_id = self.most_left(right_id);
+						update_parent!(parent_id, Some(candidate_id), id);
+						let (candidate_parent_id, candidate_right) = {
+							let candidate =
+								&mut self.arena[candidate_id];
+							let candidate_right = candidate.right;
+							let candidate_parent_id =
+								if right_id == candidate_id {
+									Some(candidate_id)
+								} else {
+									candidate.parent
+								};
+
+							candidate.right = Some(right_id);
+							candidate.left = Some(left_id);
+							candidate.parent = parent_id;
+
+							(candidate_parent_id, candidate_right)
+						};
+						update_parent!(
+							candidate_parent_id,
+							candidate_right,
+							candidate_id
+						);
 					}
-				} else if right_id.is_some() && left_id.is_none() {
-					update_parent!(right_id);
-					self.arena[right_id.unwrap()].parent = parent_id;
-				} else if right_id.is_none() && left_id.is_some() {
-					update_parent!(left_id);
-					self.arena[left_id.unwrap()].parent = parent_id;
+					(Some(left_id), None) => {
+						update_parent!(parent_id, Some(left_id), id);
+						self.arena[left_id].parent = parent_id;
+					}
+					(None, Some(right_id)) => {
+						update_parent!(parent_id, Some(right_id), id);
+						self.arena[right_id].parent = parent_id;
+					}
 				}
 				true
 			}
@@ -226,6 +249,9 @@ where
 	}
 
 	pub fn traversal_map(&self, typ: &Traversal, f: fn(T) -> T) -> Vec<T> {
+		if self.arena.len() == 0 {
+			return vec![];
+		}
 		let mut path = Vec::with_capacity(self.size());
 		match typ {
 			Traversal::BFS => self.traversal_map_in_bfs(f, &mut path),
@@ -243,8 +269,20 @@ where
 		use std::collections::VecDeque;
 		let mut q = VecDeque::with_capacity(self.size());
 		let mut cur = &self.arena[self.root_id];
+
+		#[cfg(debug_assertions)]
+		use std::collections::HashSet;
+		#[cfg(debug_assertions)]
+		let mut set = HashSet::with_capacity(self.size());
+
 		loop {
 			path.push(f(cur.val));
+
+			#[cfg(debug_assertions)]
+			if !set.insert(cur.idx) {
+				break;
+			}
+
 			if cur.left.is_some() {
 				q.push_back(cur.left.unwrap());
 			}
@@ -374,10 +412,7 @@ fn bst_insert_greater() {
 
 #[test]
 fn bst_traversal() {
-	let mut t = ArenaTree::default();
-	t.insert(2);
-	t.insert(1);
-	t.insert(3);
+	let t = ArenaTree::from_vec(vec![2, 1, 3]);
 
 	println!("arena: {:?}", t);
 
@@ -399,12 +434,7 @@ fn bst_traversal() {
 
 #[test]
 fn bst_traversal_complex() {
-	let mut t = ArenaTree::default();
-	t.insert(5);
-	t.insert(1);
-	t.insert(2);
-	t.insert(4);
-	t.insert(3);
+	let t = ArenaTree::from_vec(vec![5, 1, 2, 4, 3]);
 
 	println!("arena: {:?}", t);
 
@@ -426,11 +456,7 @@ fn bst_traversal_complex() {
 
 #[test]
 fn bst_delete_leaf() {
-	let mut t = ArenaTree::default();
-	for &val in (vec![4, 2, 6, 1, 3, 5, 7]).iter() {
-		t.insert(val);
-	}
-
+	let mut t = ArenaTree::from_vec(vec![4, 2, 6, 1, 3, 5, 7]);
 	println!("arena: {:?}", t);
 
 	assert_eq!(t.traversal(&Traversal::BFS), vec![4, 2, 6, 1, 3, 5, 7]);
@@ -442,11 +468,7 @@ fn bst_delete_leaf() {
 
 #[test]
 fn bst_delete_node() {
-	let mut t = ArenaTree::default();
-	for &val in (vec![4, 2, 6, 1, 3, 5, 7]).iter() {
-		t.insert(val);
-	}
-
+	let mut t = ArenaTree::from_vec(vec![4, 2, 6, 1, 3, 5, 7]);
 	println!("arena: {:?}", t);
 
 	assert_eq!(t.traversal(&Traversal::BFS), vec![4, 2, 6, 1, 3, 5, 7]);
@@ -457,12 +479,27 @@ fn bst_delete_node() {
 }
 
 #[test]
-fn bst_most_left() {
-	let mut t = ArenaTree::default();
-	for &val in (vec![4, 2, 6, 1, 3, 5, 7]).iter() {
-		t.insert(val);
+fn bst_delete_node_2() {
+	let mut t = ArenaTree::from_vec(vec![4, 2, 6, 1, 3, 5, 7]);
+	let testcases = vec![
+		(4, vec![5, 2, 6, 1, 3, 7]),
+		(5, vec![6, 2, 7, 1, 3]),
+		(6, vec![7, 2, 1, 3]),
+		(7, vec![2, 1, 3]),
+		(2, vec![3, 1]),
+		(3, vec![1]),
+		(1, vec![]),
+	];
+	for (val, expect) in testcases.iter() {
+		println!("delete {:?}", val);
+		assert_eq!(t.delete(*val), true);
+		assert_eq!(t.traversal(&Traversal::BFS), *expect);
 	}
+}
 
+#[test]
+fn bst_most_left() {
+	let t = ArenaTree::from_vec(vec![4, 2, 6, 1, 3, 5, 7]);
 	println!("arena: {:?}", t);
 
 	assert_eq!(t.most_left(0), 3);
