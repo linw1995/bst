@@ -66,7 +66,7 @@ where
 		if self.size() == 0 {
 			None
 		} else {
-			let mut cur = &self.arena[0];
+			let mut cur = &self.arena[self.root_id];
 			loop {
 				cur = match val.cmp(&cur.val) {
 					Ordering::Less => match cur.left {
@@ -95,7 +95,7 @@ where
 	pub fn search(&mut self, val: T) -> Option<usize> {
 		match self.search_parent(val) {
 			None => {
-				if self.arena.len() > 0 && self.arena[0].val == val {
+				if self.arena.len() > 0 && self.arena[self.root_id].val == val {
 					Some(0)
 				} else {
 					None
@@ -115,7 +115,7 @@ where
 	pub fn insert(&mut self, val: T) -> usize {
 		match self.search_parent(val) {
 			None => {
-				if self.arena.len() > 0 && self.arena[0].val == val {
+				if self.arena.len() > 0 && self.arena[self.root_id].val == val {
 					0
 				} else {
 					self.node(val)
@@ -152,9 +152,73 @@ where
 		}
 	}
 
+	fn most_left(&self, id: usize) -> usize {
+		let mut cur = &self.arena[id];
+		loop {
+			cur = match cur.left {
+				Some(id) => &self.arena[id],
+				None => break cur.idx,
+			};
+		}
+	}
+
 	/// delete may produce a gap in arena.
-	pub fn delete(&mut self, val: T) {
-		todo!()
+	pub fn delete(&mut self, val: T) -> bool {
+		match self.search(val) {
+			None => false,
+			Some(id) => {
+				let (is_leaf, parent_id, right_id, left_id) = {
+					let cur = &self.arena[id];
+					(cur.is_leaf(), cur.parent, cur.right, cur.left)
+				};
+				macro_rules! update_parent {
+					($id: expr) => {
+						match (parent_id, $id) {
+							(None, None) => self.arena.clear(),
+							(None, Some(id)) => {
+								self.root_id = id;
+							}
+							(Some(parent_id), val) => {
+								let parent =
+									&mut self.arena[parent_id];
+								if parent.left == Some(id) {
+									parent.left = val;
+								} else {
+									parent.right = val;
+								}
+							}
+						}
+					};
+				}
+				if is_leaf {
+					update_parent!(None);
+				} else if right_id.is_some() && left_id.is_some() {
+					let candidate_id = self.most_left(right_id.unwrap());
+					update_parent!(Some(candidate_id));
+					let candidate_parent_id = {
+						let candidate = &mut self.arena[candidate_id];
+						candidate.right = right_id;
+						candidate.left = left_id;
+						let candidate_parent_id = candidate.parent.unwrap();
+						candidate.parent = parent_id;
+						candidate_parent_id
+					};
+					let candidate_parent = &mut self.arena[candidate_parent_id];
+					if candidate_parent.left == Some(candidate_id) {
+						candidate_parent.left = None
+					} else {
+						candidate_parent.right = None
+					}
+				} else if right_id.is_some() && left_id.is_none() {
+					update_parent!(right_id);
+					self.arena[right_id.unwrap()].parent = parent_id;
+				} else if right_id.is_none() && left_id.is_some() {
+					update_parent!(left_id);
+					self.arena[left_id.unwrap()].parent = parent_id;
+				}
+				true
+			}
+		}
 	}
 
 	pub fn traversal(&self, typ: &Traversal) -> Vec<T> {
@@ -165,7 +229,12 @@ where
 		let mut path = Vec::with_capacity(self.size());
 		match typ {
 			Traversal::BFS => self.traversal_map_in_bfs(f, &mut path),
-			_ => self.recursive_traversal_map_in_dfs(typ, f, Some(0), &mut path),
+			_ => self.recursive_traversal_map_in_dfs(
+				typ,
+				f,
+				Some(self.root_id),
+				&mut path,
+			),
 		}
 		path
 	}
@@ -173,7 +242,7 @@ where
 	fn traversal_map_in_bfs(&self, f: fn(T) -> T, path: &mut Vec<T>) {
 		use std::collections::VecDeque;
 		let mut q = VecDeque::with_capacity(self.size());
-		let mut cur = &self.arena[0];
+		let mut cur = &self.arena[self.root_id];
 		loop {
 			path.push(f(cur.val));
 			if cur.left.is_some() {
@@ -353,4 +422,50 @@ fn bst_traversal_complex() {
 		println!("mode: {:?}, expect: {:?}", mode, expect);
 		assert_eq!(&t.traversal(mode), expect);
 	}
+}
+
+#[test]
+fn bst_delete_leaf() {
+	let mut t = ArenaTree::default();
+	for &val in (vec![4, 2, 6, 1, 3, 5, 7]).iter() {
+		t.insert(val);
+	}
+
+	println!("arena: {:?}", t);
+
+	assert_eq!(t.traversal(&Traversal::BFS), vec![4, 2, 6, 1, 3, 5, 7]);
+
+	assert_eq!(t.delete(1), true);
+	assert_eq!(t.traversal(&Traversal::BFS), vec![4, 2, 6, 3, 5, 7]);
+	assert_eq!(t.delete(1), false);
+}
+
+#[test]
+fn bst_delete_node() {
+	let mut t = ArenaTree::default();
+	for &val in (vec![4, 2, 6, 1, 3, 5, 7]).iter() {
+		t.insert(val);
+	}
+
+	println!("arena: {:?}", t);
+
+	assert_eq!(t.traversal(&Traversal::BFS), vec![4, 2, 6, 1, 3, 5, 7]);
+
+	assert_eq!(t.delete(4), true);
+	assert_eq!(t.traversal(&Traversal::BFS), vec![5, 2, 6, 1, 3, 7]);
+	assert_eq!(t.delete(4), false);
+}
+
+#[test]
+fn bst_most_left() {
+	let mut t = ArenaTree::default();
+	for &val in (vec![4, 2, 6, 1, 3, 5, 7]).iter() {
+		t.insert(val);
+	}
+
+	println!("arena: {:?}", t);
+
+	assert_eq!(t.most_left(0), 3);
+	assert_eq!(t.most_left(1), 3);
+	assert_eq!(t.most_left(2), 5);
 }
