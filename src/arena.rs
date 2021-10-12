@@ -104,7 +104,7 @@ where
     pub fn search(&mut self, val: T) -> Option<usize> {
         match self.search_parent(val) {
             None => {
-                if self.arena.len() > 0 && self.arena[self.root_id].val == val {
+                if !self.arena.is_empty() && self.arena[self.root_id].val == val {
                     Some(self.root_id)
                 } else {
                     None
@@ -124,7 +124,7 @@ where
     pub fn insert(&mut self, val: T) -> usize {
         match self.search_parent(val) {
             None => {
-                if self.arena.len() > 0 && self.arena[self.root_id].val == val {
+                if !self.arena.is_empty() && self.arena[self.root_id].val == val {
                     0
                 } else {
                     self.node(val)
@@ -137,10 +137,8 @@ where
                         if parent.left.is_some() {
                             return parent.left.unwrap();
                         }
-                    } else {
-                        if parent.right.is_some() {
-                            return parent.right.unwrap();
-                        }
+                    } else if parent.right.is_some() {
+                        return parent.right.unwrap();
                     }
                 }
                 let id = self.node(val);
@@ -239,7 +237,7 @@ where
     }
 
     pub fn traversal_map(&self, typ: &Traversal, f: fn(T) -> T) -> Vec<T> {
-        if self.arena.len() == 0 {
+        if self.arena.is_empty() {
             return vec![];
         }
         let mut path = Vec::with_capacity(self.size());
@@ -289,7 +287,7 @@ where
         path: &mut Vec<T>,
     ) {
         match id {
-            None => return,
+            None => {}
             Some(id) => {
                 let node = &self.arena[id];
                 macro_rules! R {
